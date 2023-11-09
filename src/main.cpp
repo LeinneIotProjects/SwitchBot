@@ -10,12 +10,16 @@
 #include <driver/touch_sensor.h>
 #include <atomic>
 
+#define DEEP_SLEEP_DELAY 10000
+
+#define DEFAULT_WEBSOCKET_URL "ws://leinne.net:33877/"
+
+#include "web.h"
 #include "wifi.h"
 #include "utils.h"
 #include "servo.h"
 #include "storage.h"
-
-#define DEEP_SLEEP_DELAY 10000
+#include "websocket.h"
 
 using namespace std;
 
@@ -24,15 +28,16 @@ atomic<int64_t> lastUpdateTime(0);
 void changeSwitchState(ledc_channel_t channel, bool state){
     switch(channel){
         case LEDC_CHANNEL_0:
-            servo::setAngle(channel, storage::getInt(state ? "up_on" : "up_off", state ? 0 : 90));
+            servo::setAngle(channel, storage::getUint8(state ? "up_on" : "up_off", state ? 45 : 110));
             break;
         case LEDC_CHANNEL_1:
-            servo::setAngle(channel, storage::getInt(state ? "down_on" : "down_off", state ? 90 : 0));
+            servo::setAngle(channel, storage::getUint8(state ? "down_on" : "down_off", state ? 110 : 45));
             break;
         default:
             return;
     }
-    printf("[IR] 모터 상태를 변경했습니다. (channel: %d, state: %s)\n", channel, state ? "true" : "false");
+    lastUpdateTime = millis();
+    printf("[Switch] 전등 상태를 변경했습니다. (switch: %s, state: %s)\n", channel ? "down" : "up", state ? "on" : "off");
 }
 
 /*void irTask(void* args){
@@ -96,12 +101,31 @@ void changeSwitchState(ledc_channel_t channel, bool state){
     }
 }*/
 
+static void webSocketHandler(void* object, esp_event_base_t base, int32_t eventId, void* eventData){
+    /*esp_websocket_event_data_t* data = (esp_websocket_event_data_t*) eventData;
+    if(eventId == WEBSOCKET_EVENT_CONNECTED){
+        lastUpdateTime = millis();
+    }else if(eventId == WEBSOCKET_EVENT_DATA && data->op_code == BINARY){
+        lastUpdateTime = millis();
+        switch(data->data_ptr[0]){
+            case 0x10: // LED LIGHT
+                gpio_set_level(LED_BUILTIN, data->data_ptr[1]);
+                break;
+            case 0x20: // 피에조 부저
+                //ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, );
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, data->data_ptr[1] ? 8000 : 0);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+                break;
+        }
+    }*/
+}
+
 static void wifiHandler(void* arg, esp_event_base_t base, int32_t id, void* data){
-    /*if(id == WIFI_EVENT_AP_START){
+    if(id == WIFI_EVENT_AP_START){
         web::start();
     }else if(web::stop()){
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    }*/
+    }
 }
 
 static void wifiTask(void* args){
@@ -114,7 +138,7 @@ static void wifiTask(void* args){
     
     storage::begin();
     wifi::begin();
-    //ws::start(webSocketHandler);
+    ws::start(webSocketHandler);
 
     esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifiHandler, NULL);
     esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_START, &wifiHandler, NULL);
@@ -153,7 +177,6 @@ extern "C" void app_main(){
     servo::init(LEDC_CHANNEL_0, GPIO_NUM_9);
     servo::init(LEDC_CHANNEL_1, GPIO_NUM_8);
     printf("wakeup cause: %d\n", esp_sleep_get_wakeup_cause());
-    printf("error: %s\n", esp_err_to_name(esp_sleep_enable_wifi_wakeup()));
 
     //TaskHandle_t irHandle;
     //xTaskCreatePinnedToCore(irTask, "task", 10000, NULL, 1, &irHandle, 1);

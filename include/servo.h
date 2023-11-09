@@ -1,3 +1,5 @@
+#pragma once
+
 #include <driver/ledc.h>
 
 #define FREQUENCY 50
