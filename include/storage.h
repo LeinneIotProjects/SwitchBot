@@ -10,7 +10,7 @@ namespace storage{
     static nvs_handle_t nvsHandle;
 
     esp_err_t begin(){
-        esp_err_t res = nvs_open("checker", NVS_READWRITE, &nvsHandle);
+        esp_err_t res = nvs_open("switchbot", NVS_READWRITE, &nvsHandle);
         if(res != ESP_OK){
             //log_e("Unable to open NVS namespace: %d", res);
         }
@@ -63,11 +63,11 @@ namespace storage{
         }else{
             stringstream stream;
             for(uint8_t i = 0; i < 5; ++i){
-                stream << (char) random('a', 'z');
+                stream << (char) random_int('a', 'z');
             }
             stream << '_';
             for(uint8_t i = 0; i < 4; ++i){
-                stream << (char) random('0', '9');
+                stream << (char) random_int('0', '9');
             }
             setString("DEVICE_ID", deviceId = stream.str(), false);
         }
