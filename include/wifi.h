@@ -5,6 +5,7 @@
 #include <string.h>
 #include <esp_wifi.h>
 #include <nvs_flash.h>
+#include <esp32-hal.h>
 
 #include "utils.h"
 

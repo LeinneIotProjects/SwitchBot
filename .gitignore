@@ -1,3 +1,6 @@
-.pio/
-.vscode/
-lib/
+.pio
+.vscode
+
+lib
+managed_components
+dependencies.lock

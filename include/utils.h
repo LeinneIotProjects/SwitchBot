@@ -1,9 +1,7 @@
 #pragma once
 
-#include <nvs.h>
 #include <time.h>
 #include <string>
-#include <sstream>
 #include <esp_sleep.h>
 #include <esp_timer.h>
 #include <esp_random.h>
@@ -14,7 +12,7 @@ using namespace std;
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-inline uint32_t random(uint32_t max){
+inline uint32_t random_int(uint32_t max){
     if(max == 0){
         return 0;
     }
@@ -22,22 +20,11 @@ inline uint32_t random(uint32_t max){
     return val % max;
 }
 
-inline uint32_t random(uint32_t min, uint32_t max){
+inline uint32_t random_int(uint32_t min, uint32_t max){
     if(min >= max){
         return min;
     }
-    return random(max - min) + min;
-}
-
-inline uint8_t getBatteryLevel(){
-    // TODO: check battery level
-    //uint8_t calculate = 0;
-    //return MIN(100, MAX(0, calculate));
-    return random(1, 10) * 10;
-}
-
-inline int64_t millis(){
-    return esp_timer_get_time() / 1000LL;
+    return random_int(max - min) + min;
 }
 
 inline int64_t getCurrentMillis(){
@@ -75,22 +62,5 @@ inline void deepSleep(gpio_num_t pin, int level, uint64_t time = 0){
     if(time > 0){
         esp_sleep_enable_timer_wakeup(time);
     }
-    esp_deep_sleep_start();
-}
-
-void hibernate(){
-    esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_OFF);
-
-    #if SOC_PM_SUPPORT_RTC_PERIPH_PD
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-    #endif
-
-    #if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
-    #endif
-
-    #if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
-    #endif
     esp_deep_sleep_start();
 }

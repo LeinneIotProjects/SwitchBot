@@ -9,115 +9,95 @@
 #include <driver/gpio.h>
 #include <driver/touch_sensor.h>
 #include <atomic>
+#include <iostream>
+#include <utility>
 
 #define DEEP_SLEEP_DELAY 10000
-
-#define DEFAULT_WEBSOCKET_URL "ws://leinne.net:33877/"
 
 #include "web.h"
 #include "wifi.h"
 #include "utils.h"
 #include "servo.h"
 #include "storage.h"
+#include "battery.h"
 #include "websocket.h"
 
 using namespace std;
 
-atomic<int64_t> lastUpdateTime(0);
+RTC_DATA_ATTR atomic<bool> upSwitchState = false;
+RTC_DATA_ATTR atomic<uint64_t> upSwitchUpdateTime = 0;
+
+RTC_DATA_ATTR atomic<bool> downSwitchState = false;
+RTC_DATA_ATTR atomic<uint64_t> downSwitchUpdateTime = 0;
 
 void changeSwitchState(ledc_channel_t channel, bool state){
     switch(channel){
         case LEDC_CHANNEL_0:
-            servo::setAngle(channel, storage::getUint8(state ? "up_on" : "up_off", state ? 45 : 110));
+            if(state == upSwitchState){
+                return;                
+            }
+            upSwitchState = state;
+            upSwitchUpdateTime = millis();
+            servo::setAngle(channel, state ? 45 : 110);
             break;
         case LEDC_CHANNEL_1:
-            servo::setAngle(channel, storage::getUint8(state ? "down_on" : "down_off", state ? 110 : 45));
+            if(state == downSwitchState){
+                return;                
+            }
+            downSwitchState = state;
+            downSwitchUpdateTime = millis();
+            servo::setAngle(channel, state ? 110 : 45);
             break;
         default:
             return;
     }
-    lastUpdateTime = millis();
-    printf("[Switch] 전등 상태를 변경했습니다. (switch: %s, state: %s)\n", channel ? "down" : "up", state ? "on" : "off");
+    ws::sendSwitchState(channel, state); // TODO: check thread-safe
+    cout << "[Switch] 전등 상태를 변경했습니다. (switch: " << (channel ? "down" : "up") << ", state: " << (state ? "on" : "off") << ")\n";
 }
 
-/*void irTask(void* args){
-    IRrecv irrecv(7, 1024, 15, true);
-    irrecv.enableIRIn();
-
-    decode_results data;
-    for(;;){
-        if(irrecv.decode(&data)){
-            if(data.decode_type != NEC){
-                if(data.decode_type != UNKNOWN){
-                    printf("[IR] NEC 데이터가 아닙니다.\n");
-                }
-                continue;
-            }
-
-            if(data.address == 33877){ // TODO: check device type
-                printf("[IR] 스위치봇 IR 신호가 아닙니다.\n");
-                continue;
-            }
-
-            ledc_channel_t channel = LEDC_CHANNEL_MAX;
-            switch(data.command >> 6){
-                case 1:
-                    channel = LEDC_CHANNEL_0;
-                    break;
-                case 2:
-                    channel = LEDC_CHANNEL_1;
-                    break;
-                case 3:
-                    channel = LEDC_CHANNEL_2;
-                    break;
-            }
-            uint8_t state = (data.command >> 4) & 0b11;
-            if(state > 1 || (data.command & 0b1111) > 0){
-                printf("[IR] 신호가 올바르지 않습니다. channel: %d, state: %d, unused: %d\n", data.command >> 6, state, data.command & 0b1111);
-                continue;
-            }
-            lastUpdateTime = millis();
-            changeSwitchState(channel, state);
-        }
-    }
-}*/
-
-/*void touchTask(void* args){
+void touchTask(void* args){
     uint64_t sum1 = 0, sum2 = 0;
     uint64_t count1 = 0, count2 = 0;
 
     uint64_t time = millis();
-    while(millis() - time < 500){
+    while(millis() - time <= 300){
         ++count1;
         ++count2;
         sum1 += touchRead(GPIO_NUM_2);
         sum2 += touchRead(GPIO_NUM_3);
     }
-    uint32_t result1 = sum1 * 100 / count1 / 100 + 500, result2 = sum2 * 100 / count2 / 100 + 500;
-    printf("[calibration] gpio2: %lu, gpio3: %lu\n", result1, result2);
+    uint32_t thresholdUp = sum1 / 100 / count1 * 100 + 100, thresholdDown = sum2 / 100 / count2 * 100 + 100;
+    cout << "[calibration] touch1: " << thresholdUp << ", touch2: " << thresholdDown << "\n";
 
+    pair<bool, bool> touch(false, false);
     for(;;){
-        // TODO: touch on/off switch
+        if(touchRead(GPIO_NUM_2) > thresholdUp + 2500){
+            if(!touch.first && millis() - upSwitchUpdateTime >= 500){
+                touch.first = true;
+                changeSwitchState(LEDC_CHANNEL_0, !upSwitchState);
+            }
+        }else{
+            touch.first = false;
+        }
+
+        if(touchRead(GPIO_NUM_3) > thresholdDown + 2500){
+            if(!touch.second && millis() - downSwitchUpdateTime >= 1000){
+                touch.second = true;
+                changeSwitchState(LEDC_CHANNEL_1, !downSwitchState);
+            }
+        }else{
+            touch.second = false;
+        }
     }
-}*/
+}
 
 static void webSocketHandler(void* object, esp_event_base_t base, int32_t eventId, void* eventData){
-    /*esp_websocket_event_data_t* data = (esp_websocket_event_data_t*) eventData;
+    esp_websocket_event_data_t* data = (esp_websocket_event_data_t*) eventData;
     if(eventId == WEBSOCKET_EVENT_CONNECTED){
-        lastUpdateTime = millis();
+        //lastUpdateTime = millis();
     }else if(eventId == WEBSOCKET_EVENT_DATA && data->op_code == BINARY){
-        lastUpdateTime = millis();
-        switch(data->data_ptr[0]){
-            case 0x10: // LED LIGHT
-                gpio_set_level(LED_BUILTIN, data->data_ptr[1]);
-                break;
-            case 0x20: // 피에조 부저
-                //ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, );
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, data->data_ptr[1] ? 8000 : 0);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-                break;
-        }
-    }*/
+        changeSwitchState((ledc_channel_t) (data->data_ptr[0] >> 4), data->data_ptr[0] & 0b1111);
+    }
 }
 
 static void wifiHandler(void* arg, esp_event_base_t base, int32_t id, void* data){
@@ -155,18 +135,25 @@ static void wifiTask(void* args){
             continue;
         }
         
-        /*time = millis();
+        time = millis();
         while(!ws::connectServer){
             if(!ws::isConnected() || millis() - time < 500){
                 continue;
             }
             time = millis();
             ws::sendWelcome();
-        }*/
+        }
     }
 }
 
+IRAM_ATTR void stopMotor(){
+    servo::setAngle(LEDC_CHANNEL_0, 90);
+}
+
 extern "C" void app_main(){
+    servo::init(LEDC_CHANNEL_0, GPIO_NUM_8);
+    servo::init(LEDC_CHANNEL_1, GPIO_NUM_9);
+
     esp_pm_config_t pm_config = {
         .max_freq_mhz = 80,
         .min_freq_mhz = 10,
@@ -174,24 +161,31 @@ extern "C" void app_main(){
     };
     ESP_ERROR_CHECK(esp_pm_configure(&pm_config));
 
-    servo::init(LEDC_CHANNEL_0, GPIO_NUM_9);
-    servo::init(LEDC_CHANNEL_1, GPIO_NUM_8);
-    printf("wakeup cause: %d\n", esp_sleep_get_wakeup_cause());
-
-    //TaskHandle_t irHandle;
-    //xTaskCreatePinnedToCore(irTask, "task", 10000, NULL, 1, &irHandle, 1);
-
     TaskHandle_t wifiHandle;
     xTaskCreatePinnedToCore(wifiTask, "wifi", 10000, NULL, 1, &wifiHandle, 0);
 
-    //TaskHandle_t touchHandle;
-    //xTaskCreatePinnedToCore(touchTask, "touch", 10000, NULL, 1, &touchHandle, 1);
+    TaskHandle_t touchHandle;
+    TaskHandle_t batteryHandle;
+    xTaskCreatePinnedToCore(touchTask, "touch", 10000, NULL, 1, &touchHandle, 1);
+    xTaskCreatePinnedToCore(battery::calculate, "battery", 10000, NULL, 1, &batteryHandle, 1);
 
+    //bool state = 0; // TEST CODE
+    //uint64_t time = millis(); // TEST CODE
     for(;;){
-        /*if(millis() - lastUpdateTime > DEEP_SLEEP_DELAY){
-            esp_sleep_enable_ext0_wakeup(GPIO_NUM_7, 0);
-            touchSleepWakeUpEnable(GPIO_NUM_4, 40000);
-            esp_deep_sleep_start();
-        }*/
+        if(millis() - MAX(upSwitchUpdateTime, downSwitchUpdateTime) > DEEP_SLEEP_DELAY){
+            // TODO: !!!!!!!FIND WAKEUP METHOD!!!!!!!!
+
+            /*touchSleepWakeUpEnable(GPIO_NUM_4, 40000);
+            esp_deep_sleep_start();*/
+        }
+
+        // TEST CODE
+        /*if(millis() - time < 2000){
+            continue;
+        }
+        time = millis();
+        //servo::setAngle(LEDC_CHANNEL_0, (state = !state) ? 0 : 180);
+        changeSwitchState(LEDC_CHANNEL_0, state = !state);
+        changeSwitchState(LEDC_CHANNEL_1, state);*/
     }
 }

@@ -8,6 +8,9 @@
 #include "servo.h"
 #include "utils.h"
 #include "storage.h"
+#include "battery.h"
+
+#define DEFAULT_WEBSOCKET_URL "ws://leinne.net:33877/ws"
 
 typedef enum{
     CONTINUITY,
@@ -19,44 +22,27 @@ typedef enum{
 } websocket_opcode_t;
 
 namespace ws{
-    atomic<bool> sendPhase = false;
     atomic<bool> connectServer = false;
     esp_websocket_client_handle_t webSocket = NULL;
 
     void sendWelcome(){
         auto device = storage::getDeviceId();
-        uint8_t buffer[16] = {0x01, 0x01, getBatteryLevel()}; //{device type, data type, battery level}
-        for(uint8_t i = 0; i< device.length(); ++i){
+        uint8_t buffer[device.length() + 3] = {0x02, 0x01, battery::level}; //{device type, data type, battery level}
+        for(uint8_t i = 0; i < device.length(); ++i){
             buffer[3 + i] = device[i];
         }
         esp_websocket_client_send_with_opcode(webSocket, WS_TRANSPORT_OPCODES_BINARY, buffer, device.length() + 3, portMAX_DELAY);
         printf("[WS] Send welcome message\n");
     }
 
-    /*void sendDoorState(DoorState state){
-        sendPhase = true;
-        printf("[WS] Start send(%s).\n", state.open ? "open" : "close");
-        uint8_t buffer[7] = {0x01, 0x02, getBatteryLevel()}; //{device type, data type, open:1 battery level:7}
-        buffer[2] = state.open ? buffer[2] | 0b10000000 : buffer[2] & 0b01111111;
-        uint8_t count = 0;
-        int64_t delay = 0;
-        do{
-            if(millis() - delay < 1000){
-                continue;
-            }
-
-            if(++count > 3){
-                printf("[WS] Send failed.\n");
-                return;
-            }
-            delay = millis();
-            int64_t current = millis() - state.updateTime;
-            for(uint8_t byte = 0; byte < 4; ++byte){
-                buffer[3 + byte] = (current >> 8 * (3 - byte)) & 0b11111111;
-            }
-            esp_websocket_client_send_with_opcode(webSocket, WS_TRANSPORT_OPCODES_BINARY, buffer, 7, portMAX_DELAY);
-        }while(sendPhase);
-    }*/
+    void sendSwitchState(ledc_channel_t channel, bool state){
+        uint8_t buffer[3] = {
+            0x02, // device type(0x01: checker, 0x02: switch bot)
+            0x03, // data type (0x01: welcome 0x02: door state, 0x03: switch state)
+            (uint8_t) ((channel << 6) | (state << 4) | (battery::level & 0b1111))
+        };
+        esp_websocket_client_send_with_opcode(webSocket, WS_TRANSPORT_OPCODES_BINARY, buffer, 3, portMAX_DELAY);
+    }
 
     bool isConnected(){
         return esp_websocket_client_is_connected(webSocket);
@@ -80,8 +66,6 @@ namespace ws{
                 }else{
                     printf("[WS] FAILED. device: %s, receive: %s, len: %d\n", storage::getDeviceId().c_str(), device.c_str(), data->data_len);
                 }
-            }else if(data->op_code == BINARY){
-                sendPhase = false;
             }
         }
     }
@@ -93,8 +77,9 @@ namespace ws{
         }
 
         esp_websocket_client_config_t websocket_cfg = {
-            .uri = url.c_str(),
-            .reconnect_timeout_ms = 250,
+            .uri = "ws://leinne.net:33877/ws",
+            .keep_alive_enable = true,
+            .reconnect_timeout_ms = 1000,
         };
 
         while(webSocket == NULL){
