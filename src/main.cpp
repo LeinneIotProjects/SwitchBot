@@ -94,8 +94,11 @@ void touchTask(void* args){
 static void webSocketHandler(void* object, esp_event_base_t base, int32_t eventId, void* eventData){
     esp_websocket_event_data_t* data = (esp_websocket_event_data_t*) eventData;
     if(eventId == WEBSOCKET_EVENT_CONNECTED){
-        //lastUpdateTime = millis();
+        ws::sendWelcome(upSwitchState, downSwitchState);
     }else if(eventId == WEBSOCKET_EVENT_DATA && data->op_code == BINARY){
+        if(data->data_len != 1){
+            return;
+        }
         changeSwitchState((ledc_channel_t) (data->data_ptr[0] >> 4), data->data_ptr[0] & 0b1111);
     }
 }
@@ -141,7 +144,7 @@ static void wifiTask(void* args){
                 continue;
             }
             time = millis();
-            ws::sendWelcome();
+            ws::sendWelcome(upSwitchState, downSwitchState);
         }
     }
 }
