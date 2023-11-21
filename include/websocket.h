@@ -28,8 +28,8 @@ namespace ws{
     void sendWelcome(bool upState, bool downState){
         auto device = storage::getDeviceId();
         uint8_t buffer[device.length() + 3] = {
-            0x02, // protocol type (0x01: welcome, 0x02: door state, 0x03: switch state)
-            0x01, // [data] device type((0x01: checker, 0x02: switch bot)
+            0x01, // protocol type (0x01: welcome, 0x02: door state, 0x03: switch state)
+            0x02, // [data] device type((0x01: checker, 0x02: switch bot)
             (uint8_t) ((upState << 6) | (downState << 4) | (battery::level & 0b1111)) // [data] switch state, battery level
         };
         for(uint8_t i = 0; i < device.length(); ++i){
