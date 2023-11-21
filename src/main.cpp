@@ -12,6 +12,7 @@
 #include <iostream>
 #include <utility>
 
+#define SERVO_ANGLE_360 1
 #define DEEP_SLEEP_DELAY 10000
 
 #include "web.h"
@@ -38,7 +39,11 @@ void changeSwitchState(ledc_channel_t channel, bool state){
             }
             upSwitchState = state;
             upSwitchUpdateTime = millis();
+            #if SERVO_ANGLE_360
+            servo::setAngle(channel, state ? 0 : 180);
+            #else
             servo::setAngle(channel, state ? 45 : 110);
+            #endif
             break;
         case LEDC_CHANNEL_1:
             if(state == downSwitchState){
@@ -46,7 +51,11 @@ void changeSwitchState(ledc_channel_t channel, bool state){
             }
             downSwitchState = state;
             downSwitchUpdateTime = millis();
+            #if SERVO_ANGLE_360
+            servo::setAngle(channel, state ? 180 : 0);
+            #else
             servo::setAngle(channel, state ? 110 : 45);
+            #endif
             break;
         default:
             return;
