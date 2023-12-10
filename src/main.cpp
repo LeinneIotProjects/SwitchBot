@@ -42,7 +42,7 @@ void changeSwitchState(ledc_channel_t channel, bool state){
             #if SERVO_ANGLE_360
             servo::setAngle(channel, state ? 0 : 180);
             #else
-            servo::setAngle(channel, state ? 45 : 110);
+            servo::setAngle(channel, state ? 54 : 111);
             #endif
             break;
         case LEDC_CHANNEL_1:
@@ -54,7 +54,7 @@ void changeSwitchState(ledc_channel_t channel, bool state){
             #if SERVO_ANGLE_360
             servo::setAngle(channel, state ? 180 : 0);
             #else
-            servo::setAngle(channel, state ? 110 : 45);
+            servo::setAngle(channel, state ? 105 : 52);
             #endif
             break;
         default:
