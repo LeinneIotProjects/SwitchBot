@@ -39,4 +39,9 @@ namespace servo{
         ));
         ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, channel));
     }
+
+    void turnOff(ledc_channel_t channel){
+        ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, channel, 0));
+        ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, channel));
+    }
 }
