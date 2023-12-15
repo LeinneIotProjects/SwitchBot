@@ -5,8 +5,9 @@
 
 #include "utils.h"
 
-#define CHECK_COUNT 40
-#define CHECK_INTERVAL 5000
+#define CHECK_TICK 10 // 확인할 간격
+#define CHECK_COUNT 100 // 측정할 횟수
+#define CHECK_INTERVAL 5000 // 확인 후 간격
 
 using namespace std;
 
@@ -29,7 +30,7 @@ namespace battery{
         uint16_t count = 0;
         uint64_t time = millis();
         for(;;){
-            if(millis() - time < 5){
+            if(millis() - time < CHECK_TICK){
                 continue;
             }
             if(count < CHECK_COUNT){
