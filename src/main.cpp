@@ -50,7 +50,9 @@ void changeSwitchState(ledc_channel_t channel, bool state){
         default:
             return;
     }
-    ws::sendSwitchState(channel, state);
+    if(ws::connectServer){
+        ws::sendSwitchState(channel, state);
+    }
     cout << "[Switch] 전등 상태를 변경했습니다. (switch: " << (channel ? "down" : "up") << ", state: " << (state ? "on" : "off") << ")\n";
 }
 
