@@ -74,7 +74,7 @@ void servoTask(void* args){
             #if SERVO_ANGLE_360
             servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 180 : 0);
             #else
-            servo::setAngle(LEDC_CHANNEL_0, state ? 54 : 111); // 본인 세팅값 하드코딩
+            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 54 : 111); // 본인 세팅값 하드코딩
             #endif
         }
         if(downSwitchState != servoState.second){
@@ -84,7 +84,7 @@ void servoTask(void* args){
             #if SERVO_ANGLE_360
             servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 0 : 180);
             #else
-            servo::setAngle(LEDC_CHANNEL_1, state ? 54 : 111); // 본인 세팅값 하드코딩
+            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 54 : 111); // 본인 세팅값 하드코딩
             #endif
         }
     }
