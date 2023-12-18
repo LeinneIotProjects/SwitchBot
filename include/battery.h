@@ -12,19 +12,19 @@
 using namespace std;
 
 namespace battery{
-    atomic<int16_t> level = 0;
+    atomic<uint8_t> level = 0;
 
-    static int16_t voltToLevel(uint16_t mVolt){
+    static uint8_t voltToLevel(uint16_t mVolt){
         if(mVolt < 1000){ // 배터리 연결이 안되어있는 장치라고 판단
-            return 10;
+            return 15;
         }
         int16_t calculate = (mVolt - 3550) * 10 / (4150 - 3550);
-        return MIN(10, MAX(0, calculate));
+        cout << "[battery] raw volt: " << mVolt << ", value: " << (calculate * 10) << "%\n";
+        return (uint8_t) MIN(10, MAX(0, calculate));
     }
 
     void calculate(void* args){
         level = voltToLevel(analogReadMilliVolts(GPIO_NUM_1) * 2.038);
-        cout << "[battery] " << (level * 10) << "%\n";
 
         uint64_t sum = 0;
         uint16_t count = 0;
@@ -39,7 +39,6 @@ namespace battery{
                 sum += analogReadMilliVolts(GPIO_NUM_1) * 2.038;
                 if(count >= CHECK_COUNT){
                     level = voltToLevel(sum / count);
-                    cout << "[battery] " << (level * 10) << "%\n";
                 }
             }else if(millis() - time > CHECK_INTERVAL){
                 time = millis();
