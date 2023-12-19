@@ -12,9 +12,6 @@
 #include <iostream>
 #include <utility>
 
-#define SERVO_ANGLE_360 1
-#define DEEP_SLEEP_DELAY 10000
-
 #include "web.h"
 #include "wifi.h"
 #include "utils.h"
@@ -72,24 +69,12 @@ void servoTask(void* args){
         if(upSwitchState != servoState.first){
             lastServoTime.first = millis();
             servoState.first = upSwitchState;
-            
-            // 본인 세팅값 하드코딩
-            #if SERVO_ANGLE_360
-            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 0 : 180);
-            #else
-            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 54 : 111);
-            #endif
+            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 0 : 180); // 본인 세팅값 하드코딩
         }
         if(downSwitchState != servoState.second){
             lastServoTime.second = millis();
             servoState.second = downSwitchState;
- 
-            // 본인 세팅값 하드코딩
-            #if SERVO_ANGLE_360
-            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 180 : 0);
-            #else
-            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 111 : 54);
-            #endif
+            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 180 : 0); // 본인 세팅값 하드코딩
         }
     }
 }
@@ -191,7 +176,7 @@ static void wifiTask(void* args){
 extern "C" void app_main(){
     // 본인 세팅값 하드코딩
     servo::init(LEDC_CHANNEL_0, GPIO_NUM_8);
-    servo::init(LEDC_CHANNEL_1, GPIO_NUM_5);
+    servo::init(LEDC_CHANNEL_1, GPIO_NUM_9);
 
     // TODO: 절전 기능 구현 (현재 방법을 찾지 못함)
     /*esp_pm_config_t pm_config = {
