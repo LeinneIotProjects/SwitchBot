@@ -178,14 +178,6 @@ extern "C" void app_main(){
     servo::init(LEDC_CHANNEL_0, GPIO_NUM_8);
     servo::init(LEDC_CHANNEL_1, GPIO_NUM_9);
 
-    // TODO: 절전 기능 구현 (현재 방법을 찾지 못함)
-    /*esp_pm_config_t pm_config = {
-        .max_freq_mhz = 80,
-        .min_freq_mhz = 10,
-        .light_sleep_enable = true
-    };
-    ESP_ERROR_CHECK(esp_pm_configure(&pm_config));*/
-
     uint8_t index = 0;
     TaskHandle_t handles[4];
     xTaskCreatePinnedToCore(wifiTask, "wifi", 10000, NULL, 1, &handles[index++], 0);
@@ -193,13 +185,5 @@ extern "C" void app_main(){
     xTaskCreatePinnedToCore(servoTask, "servo", 10000, NULL, 1, &handles[index++], 1);
     xTaskCreatePinnedToCore(battery::calculate, "battery", 10000, NULL, 1, &handles[index++], 1);
 
-    //bool state = 0; // TEST CODE
-    //uint64_t time = millis(); // TEST CODE
-    for(;;){
-        // TODO: !!!!!!!FIND WAKEUP METHOD!!!!!!!!
-        /*if(millis() - MAX(upSwitchUpdateTime, downSwitchUpdateTime) > DEEP_SLEEP_DELAY){
-            // touchSleepWakeUpEnable(GPIO_NUM_4, 40000);
-            // esp_deep_sleep_start();
-        }*/
-    }
+    for(;;);
 }
