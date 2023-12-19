@@ -53,18 +53,18 @@ void changeSwitchState(ledc_channel_t channel, bool state){
     if(ws::connectServer){
         ws::sendSwitchState(channel, state);
     }
-    cout << "[Switch] 전등 상태를 변경했습니다. (switch: " << (channel ? "down" : "up") << ", state: " << (state ? "on" : "off") << ")\n";
+    cout << "[Servo] " << (channel ? "하단" : "상단") << " 스위치 " << (state ? "켜짐" : "꺼짐") << "\n";
 }
 
 void servoTask(void* args){
     pair<bool, bool> servoState(false, false);
     pair<int64_t, int64_t> lastServoTime(-1, -1);
     for(;;){
-        if(lastServoTime.first != -1 && millis() - lastServoTime.first >= 450){
+        if(lastServoTime.first != -1 && millis() - lastServoTime.first >= 350){
             lastServoTime.first = -1;
             servo::turnOff(LEDC_CHANNEL_0);
         }
-        if(lastServoTime.second != -1 && millis() - lastServoTime.second >= 450){
+        if(lastServoTime.second != -1 && millis() - lastServoTime.second >= 350){
             lastServoTime.second = -1;
             servo::turnOff(LEDC_CHANNEL_1);
         }
@@ -73,20 +73,22 @@ void servoTask(void* args){
             lastServoTime.first = millis();
             servoState.first = upSwitchState;
             
+            // 본인 세팅값 하드코딩
             #if SERVO_ANGLE_360
-            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 180 : 0);
+            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 0 : 180);
             #else
-            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 54 : 111); // 본인 세팅값 하드코딩
+            servo::setAngle(LEDC_CHANNEL_0, upSwitchState ? 54 : 111);
             #endif
         }
         if(downSwitchState != servoState.second){
             lastServoTime.second = millis();
             servoState.second = downSwitchState;
-            
+ 
+            // 본인 세팅값 하드코딩
             #if SERVO_ANGLE_360
-            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 0 : 180);
+            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 180 : 0);
             #else
-            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 54 : 111); // 본인 세팅값 하드코딩
+            servo::setAngle(LEDC_CHANNEL_1, downSwitchState ? 111 : 54);
             #endif
         }
     }
@@ -136,7 +138,6 @@ static void webSocketHandler(void* object, esp_event_base_t base, int32_t eventI
         }
         ledc_channel_t channel = (ledc_channel_t) (data->data_ptr[0] >> 4);
         bool state = data->data_ptr[0] & 0x01;
-        cout << "[WS] channel: " << channel << ", state: " << state << "\n";
         changeSwitchState(channel, state);
     }
 }
@@ -188,8 +189,9 @@ static void wifiTask(void* args){
 }
 
 extern "C" void app_main(){
+    // 본인 세팅값 하드코딩
     servo::init(LEDC_CHANNEL_0, GPIO_NUM_8);
-    servo::init(LEDC_CHANNEL_1, GPIO_NUM_9);
+    servo::init(LEDC_CHANNEL_1, GPIO_NUM_5);
 
     // TODO: 절전 기능 구현 (현재 방법을 찾지 못함)
     /*esp_pm_config_t pm_config = {
