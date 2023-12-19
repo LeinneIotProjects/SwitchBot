@@ -10,7 +10,7 @@
 #include "storage.h"
 #include "battery.h"
 
-#define WEBSOCKET_URL "ws://leinne.net:8080/ws"
+#define WEBSOCKET_URL "ws://localhost:8080/iot" // ws 주소 작성
 
 typedef enum{
     CONTINUITY,
