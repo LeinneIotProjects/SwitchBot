@@ -20,13 +20,20 @@
 #include "battery.h"
 #include "websocket.h"
 
+// 본인 세팅값 하드코딩
+#define SERVO_UP_PIN GPIO_NUM_8
+#define SERVO_DOWN_PIN GPIO_NUM_9
+
+#define TOUCH_UP_PIN GPIO_NUM_2
+#define TOUCH_DOWN_PIN GPIO_NUM_3
+
 using namespace std;
 
-RTC_DATA_ATTR atomic<bool> upSwitchState = false;
-RTC_DATA_ATTR atomic<uint64_t> upSwitchUpdateTime = 0;
+atomic<bool> upSwitchState = false;
+atomic<uint64_t> upSwitchUpdateTime = 0;
 
-RTC_DATA_ATTR atomic<bool> downSwitchState = false;
-RTC_DATA_ATTR atomic<uint64_t> downSwitchUpdateTime = 0;
+atomic<bool> downSwitchState = false;
+atomic<uint64_t> downSwitchUpdateTime = 0;
 
 void changeSwitchState(ledc_channel_t channel, bool state){
     switch(channel){
@@ -57,11 +64,11 @@ void servoTask(void* args){
     pair<bool, bool> servoState(false, false);
     pair<int64_t, int64_t> lastServoTime(-1, -1);
     for(;;){
-        if(lastServoTime.first != -1 && millis() - lastServoTime.first >= 350){
+        if(lastServoTime.first != -1 && millis() - lastServoTime.first >= 200){
             lastServoTime.first = -1;
             servo::turnOff(LEDC_CHANNEL_0);
         }
-        if(lastServoTime.second != -1 && millis() - lastServoTime.second >= 350){
+        if(lastServoTime.second != -1 && millis() - lastServoTime.second >= 200){
             lastServoTime.second = -1;
             servo::turnOff(LEDC_CHANNEL_1);
         }
@@ -87,15 +94,15 @@ void touchTask(void* args){
     while(millis() - time <= 300){
         ++count1;
         ++count2;
-        sum1 += touchRead(GPIO_NUM_2);
-        sum2 += touchRead(GPIO_NUM_3);
+        sum1 += touchRead(TOUCH_UP_PIN);
+        sum2 += touchRead(TOUCH_DOWN_PIN);
     }
     uint32_t thresholdUp = sum1 / 100 / count1 * 100 + 100, thresholdDown = sum2 / 100 / count2 * 100 + 100;
     cout << "[calibration] touch1: " << thresholdUp << ", touch2: " << thresholdDown << "\n";
 
     pair<bool, bool> touch(false, false);
     for(;;){
-        if(touchRead(GPIO_NUM_2) > thresholdUp + 2500){
+        if(touchRead(TOUCH_UP_PIN) > thresholdUp + 2500){
             if(!touch.first && millis() - upSwitchUpdateTime >= 500){
                 touch.first = true;
                 changeSwitchState(LEDC_CHANNEL_0, !upSwitchState);
@@ -104,7 +111,7 @@ void touchTask(void* args){
             touch.first = false;
         }
 
-        if(touchRead(GPIO_NUM_3) > thresholdDown + 2500){
+        if(touchRead(TOUCH_DOWN_PIN) > thresholdDown + 2500){
             if(!touch.second && millis() - downSwitchUpdateTime >= 1000){
                 touch.second = true;
                 changeSwitchState(LEDC_CHANNEL_1, !downSwitchState);
@@ -174,9 +181,8 @@ static void wifiTask(void* args){
 }
 
 extern "C" void app_main(){
-    // 본인 세팅값 하드코딩
-    servo::init(LEDC_CHANNEL_0, GPIO_NUM_8);
-    servo::init(LEDC_CHANNEL_1, GPIO_NUM_9);
+    servo::init(LEDC_CHANNEL_0, SERVO_UP_PIN);
+    servo::init(LEDC_CHANNEL_1, SERVO_DOWN_PIN);
 
     uint8_t index = 0;
     TaskHandle_t handles[4];
